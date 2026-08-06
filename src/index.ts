@@ -7,7 +7,10 @@
  * 语言回退链（按 navigator.language）：
  *   完整语言码（zh-CN）→ 语言前缀（zh）→ en → 放弃
  *
- * 词典加载成功前弹窗保持英文；加载失败则静默放弃，不干扰游戏。
+ * 两种翻译模式：
+ *   - DOM 替换（如 FieldsOfArle）：? 弹窗是规则页克隆的 HTML，按锚点 id 替换。
+ *   - i18next 注入（如 Tiletum）：官方 zh 词典为空，把中文注入 i18next 的
+ *     zh/<游戏> 命名空间，历史记录 / 悬停提示 / 按钮 / 弹窗全部自动变中文。
  */
 
 /** GitHub 仓库：词典 JSON 存放在 <repo>/dicts/<游戏>/<语言>.json */
@@ -17,12 +20,45 @@ const GITHUB_BRANCH = "main";
 
 /**
  * 词典源（按优先级）。jsDelivr 加速镜像优先，GitHub raw 兜底。
- * {gh} 会被替换为 GitHub 的 user/repo@branch 形式。
+ * 最终 URL：<源>/dicts/<游戏>/<语言>.json
  */
 const DICT_SOURCES = [
   `https://fastly.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}`,
   `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}`,
 ];
+
+/**
+ * 使用 i18next 注入模式的游戏（官方 zh 词典为空，需整体注入）。
+ * 其余游戏默认走 DOM 替换模式。
+ */
+const I18NEXT_GAMES = new Set(["Tiletum"]);
+
+type Dict = Record<string, string>;
+
+/** 访问页面全局的 i18next（baseStartup.js 引入）。 */
+function getI18next(): {
+  addResourceBundle: (lng: string, ns: string, resources: Dict) => void;
+  emit: (event: string) => void;
+  t: (key: string, opts?: unknown) => string;
+} | null {
+  const i18n = (window as unknown as { i18next?: unknown }).i18next;
+  if (i18n && typeof (i18n as { addResourceBundle?: unknown }).addResourceBundle === "function") {
+    return i18n as {
+      addResourceBundle: (lng: string, ns: string, resources: Dict) => void;
+      emit: (event: string) => void;
+      t: (key: string, opts?: unknown) => string;
+    };
+  }
+  return null;
+}
+
+/** 访问 Yucata 全局对象 y$（baseStartup.js 里 var y$ = {}）。 */
+function getYucata(): {
+  text?: { syncTranslations?: () => void };
+  log?: { update?: () => void };
+} {
+  return (window as unknown as { y$?: object }).y$ ?? {};
+}
 
 (() => {
   const m = location.pathname.match(/\/Game\/([^/]+)\//);
@@ -30,40 +66,8 @@ const DICT_SOURCES = [
   if (!gameTypeRaw) return; // 不在游戏页，退出
   const gameType: string = gameTypeRaw;
 
-  /** 已翻译标记，避免同一元素被重复处理。 */
+  /** 已翻译标记，避免同一元素被重复处理（DOM 模式）。 */
   const MARK = "data-yucata-zh";
-  let dict: Record<string, string> | null = null;
-  let observer: MutationObserver | null = null;
-
-  function translateModal(modal: HTMLElement): void {
-    if (!dict) return;
-    modal.querySelectorAll<HTMLElement>("[id]").forEach((el) => {
-      const zh = dict![el.id];
-      if (zh && !el.hasAttribute(MARK)) {
-        el.innerHTML = zh;
-        el.setAttribute(MARK, "1");
-      }
-    });
-  }
-
-  function startObserving(): void {
-    if (observer) return;
-    observer = new MutationObserver((mutations) => {
-      for (const mu of mutations) {
-        for (const node of mu.addedNodes) {
-          if (node.nodeType !== Node.ELEMENT_NODE) continue;
-          const el = node as HTMLElement;
-          if (el.classList && el.classList.contains("modal")) {
-            translateModal(el);
-          } else if (el.querySelectorAll) {
-            el.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
-          }
-        }
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
-  }
 
   /**
    * 按浏览器主语言（navigator.language）计算候选词典语言列表（含回退链）。
@@ -95,13 +99,13 @@ const DICT_SOURCES = [
     return out;
   }
 
-  async function fetchDict(type: string, lang: string): Promise<Record<string, string> | null> {
+  async function fetchDict(type: string, lang: string): Promise<Dict | null> {
     for (const base of DICT_SOURCES) {
       const url = `${base}/dicts/${encodeURIComponent(type)}/${encodeURIComponent(lang)}.json`;
       try {
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) continue;
-        const data = (await res.json()) as Record<string, string>;
+        const data = (await res.json()) as Dict;
         if (data && typeof data === "object") return data;
       } catch {
         // 尝试下一个源
@@ -110,24 +114,85 @@ const DICT_SOURCES = [
     return null;
   }
 
+  // ==================== DOM 替换模式 ====================
+
+  function startDomMode(dict: Dict): void {
+    let observer: MutationObserver | null = null;
+
+    function translateModal(modal: HTMLElement): void {
+      modal.querySelectorAll<HTMLElement>("[id]").forEach((el) => {
+        const zh = dict[el.id];
+        if (zh && !el.hasAttribute(MARK)) {
+          el.innerHTML = zh;
+          el.setAttribute(MARK, "1");
+        }
+      });
+    }
+
+    if (observer) return;
+    observer = new MutationObserver((mutations) => {
+      for (const mu of mutations) {
+        for (const node of mu.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          const el = node as HTMLElement;
+          if (el.classList && el.classList.contains("modal")) {
+            translateModal(el);
+          } else if (el.querySelectorAll) {
+            el.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
+  }
+
+  // ==================== i18next 注入模式 ====================
+
+  function startI18nextMode(dict: Dict): void {
+    const i18n = getI18next();
+    if (!i18n) {
+      console.warn("[yucata-zh] 页面未暴露 i18next，无法注入词典，保持英文。");
+      return;
+    }
+
+    // 注入到 zh 命名空间（i18next 在 /zh/ 路径下使用 zh 语言）。
+    i18n.addResourceBundle("zh", gameType, dict);
+
+    // 刷新 y$.text 的翻译快照（y$.text.get 内部走 i18next.t）。
+    const y$ = getYucata();
+    try {
+      y$.text?.syncTranslations?.();
+    } catch {
+      // 忽略快照刷新错误
+    }
+
+    // 重渲染历史记录（已有日志条目用新词典刷新）。
+    try {
+      y$.log?.update?.();
+    } catch {
+      // 忽略重渲染错误
+    }
+
+    console.log(`[yucata-zh] 已注入 ${gameType} 中文词典到 i18next（${Object.keys(dict).length} 条）。`);
+  }
+
+  // ==================== 启动 ====================
+
   async function loadDict(): Promise<void> {
     for (const lang of candidateLangs()) {
       const d = await fetchDict(gameType, lang);
       if (d) {
-        dict = d;
-        break;
+        if (I18NEXT_GAMES.has(gameType)) {
+          startI18nextMode(d);
+        } else {
+          startDomMode(d);
+        }
+        return;
       }
     }
-    if (dict) {
-      startObserving();
-      // 词典加载期间可能已有弹窗出现，词典到位后补翻译一次。
-      document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
-    } else {
-      console.warn(`[yucata-zh] 未找到 ${gameType} 的翻译词典（语言: ${navigator.language}），保持英文。`);
-    }
+    console.warn(`[yucata-zh] 未找到 ${gameType} 的翻译词典（语言: ${navigator.language}），保持英文。`);
   }
 
-  // 词典加载是异步的：先开始监听弹窗，词典到位后统一翻译（含已出现的弹窗）。
-  startObserving();
   void loadDict();
 })();

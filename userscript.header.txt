@@ -2,13 +2,13 @@
 // @name         Yucata 帮助提示多语言翻译
 // @name:en      Yucata Help Multi-language Translation
 // @namespace    yucata-lingo
-// @version      0.2.0
+// @version      0.3.0
 // @description  将 Yucata 游戏内点击 "?" 弹出的英文规则帮助按浏览器语言翻译（词典远端加载，支持多语言；需配置词典仓库地址）
 // @match        https://www.yucata.de/*/Game/*
 // @grant        none
 // @connect      fastly.jsdelivr.net
 // @connect      raw.githubusercontent.com
 // @run-at       document-idle
-// @updateURL    https://fastly.jsdelivr.net/gh/821869798/YucataLingo@main/dist/yucata-zh-help.user.js
-// @downloadURL  https://fastly.jsdelivr.net/gh/821869798/YucataLingo@main/dist/yucata-zh-help.user.js
+// @updateURL    https://raw.githubusercontent.com/821869798/YucataLingo/main/dist/yucata-zh-help.user.js
+// @downloadURL  https://raw.githubusercontent.com/821869798/YucataLingo/main/dist/yucata-zh-help.user.js
 // ==/UserScript==

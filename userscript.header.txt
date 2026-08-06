@@ -9,4 +9,6 @@
 // @connect      fastly.jsdelivr.net
 // @connect      raw.githubusercontent.com
 // @run-at       document-idle
+// @updateURL    https://fastly.jsdelivr.net/gh/821869798/YucataLingo@main/dist/yucata-zh-help.user.js
+// @downloadURL  https://fastly.jsdelivr.net/gh/821869798/YucataLingo@main/dist/yucata-zh-help.user.js
 // ==/UserScript==

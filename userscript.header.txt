@@ -8,7 +8,7 @@
 // @grant        none
 // @connect      fastly.jsdelivr.net
 // @connect      raw.githubusercontent.com
-// @run-at       document-idle
+// @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/821869798/YucataLingo/main/dist/yucata-zh-help.user.js
 // @downloadURL  https://raw.githubusercontent.com/821869798/YucataLingo/main/dist/yucata-zh-help.user.js
 // ==/UserScript==

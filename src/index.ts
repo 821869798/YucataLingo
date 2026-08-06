@@ -65,30 +65,33 @@ const DICT_SOURCES = [
     document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
   }
 
-  /** 按浏览器语言计算候选词典语言列表（含回退链）。BCP 47：语言小写 + 区域大写（zh-CN）。 */
+  /**
+   * 按浏览器主语言（navigator.language）计算候选词典语言列表（含回退链）。
+   * 只取主语言，不遍历 navigator.languages 偏好列表，避免无谓的多语言请求。
+   * BCP 47：语言小写 + 区域大写（zh-CN）；回退：完整码 → 语言前缀 → en。
+   */
   function candidateLangs(): string[] {
-    const navLangs: string[] = [];
-    if (typeof navigator !== "undefined") {
-      if (navigator.languages?.length) navLangs.push(...navigator.languages);
-      if (navigator.language) navLangs.push(navigator.language);
-    }
-    const seen = new Set<string>();
     const out: string[] = [];
-    for (const raw of navLangs) {
-      const [langPart, regionPart] = raw.replace("_", "-").split("-");
-      const lang = regionPart
-        ? `${langPart.toLowerCase()}-${regionPart.toUpperCase()}`
-        : langPart.toLowerCase();
-      if (seen.has(lang)) continue;
+    const seen = new Set<string>();
+    const push = (lang: string): void => {
+      if (!lang || seen.has(lang)) return;
       seen.add(lang);
       out.push(lang);
-      const prefix = lang.split("-")[0];
-      if (prefix !== lang && !seen.has(prefix)) {
-        seen.add(prefix);
-        out.push(prefix);
-      }
+    };
+
+    let primary = "";
+    if (typeof navigator !== "undefined") {
+      primary = navigator.language || "";
     }
-    out.push("en"); // 兜底
+    const [langPart, regionPart] = primary.replace("_", "-").split("-");
+    if (langPart) {
+      const full = regionPart
+        ? `${langPart.toLowerCase()}-${regionPart.toUpperCase()}`
+        : langPart.toLowerCase();
+      push(full);
+      if (full !== langPart.toLowerCase()) push(langPart.toLowerCase());
+    }
+    push("en"); // 终极兜底：无对应语言词典时保持英文
     return out;
   }
 

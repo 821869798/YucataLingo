@@ -65,7 +65,7 @@ const DICT_SOURCES = [
     document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
   }
 
-  /** 按浏览器语言计算候选词典语言列表（含回退链）。 */
+  /** 按浏览器语言计算候选词典语言列表（含回退链）。BCP 47：语言小写 + 区域大写（zh-CN）。 */
   function candidateLangs(): string[] {
     const navLangs: string[] = [];
     if (typeof navigator !== "undefined") {
@@ -75,7 +75,10 @@ const DICT_SOURCES = [
     const seen = new Set<string>();
     const out: string[] = [];
     for (const raw of navLangs) {
-      const lang = raw.toLowerCase().replace("_", "-");
+      const [langPart, regionPart] = raw.replace("_", "-").split("-");
+      const lang = regionPart
+        ? `${langPart.toLowerCase()}-${regionPart.toUpperCase()}`
+        : langPart.toLowerCase();
       if (seen.has(lang)) continue;
       seen.add(lang);
       out.push(lang);

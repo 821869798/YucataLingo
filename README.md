@@ -14,10 +14,31 @@
 
 ## 安装
 
+### 方式一：一键安装（推荐）
+
+浏览器已安装 Tampermonkey / Violentmonkey 时，直接点击下面的链接即可自动弹出安装页面：
+
+- **jsDelivr 镜像（推荐，国内快）**：
+  https://fastly.jsdelivr.net/gh/821869798/YucataLingo@main/dist/yucata-zh-help.user.js
+- **GitHub 原始地址**：
+  https://raw.githubusercontent.com/821869798/YucataLingo/main/dist/yucata-zh-help.user.js
+
+### 方式二：手动导入
+
 1. 浏览器安装 Tampermonkey（Chrome/Edge）或 Violentmonkey（Firefox）。
-2. 打开扩展面板 → 新建脚本（或「从文件导入」）。
-3. 把 `dist/yucata-zh-help.user.js` 的**全部内容**粘贴进去并保存；或直接把该文件拖进扩展面板。
-4. 打开任意 Yucata 对局，点击 `?` 查看翻译（词典源默认已配置，见下文「配置词典仓库」）。
+2. 从上方链接下载 `yucata-zh-help.user.js` 文件。
+3. 打开扩展面板，选择 **管理面板 → 实用工具 → 导入**，选择下载的脚本文件；或「新建脚本」后把文件内容整体粘贴进去并保存（Ctrl+S）。
+4. 打开任意 Yucata 对局，点击 `?` 查看翻译（词典源默认已配置，无需手动设置）。
+
+> 词典数据与脚本分离，从远端加载，脚本本身只有约 2KB；语言按浏览器自动匹配，无需配置。
+
+## 词典文件路径
+
+翻译词典 JSON 存放在仓库 `dicts/` 目录，也可通过镜像/原始地址直接访问：
+
+| 文件 | jsDelivr 镜像 | GitHub 原始 |
+| --- | --- | --- |
+| 阿勒农场中文词典 | https://fastly.jsdelivr.net/gh/821869798/YucataLingo@main/dicts/FieldsOfArle/zh-CN.json | https://raw.githubusercontent.com/821869798/YucataLingo/main/dicts/FieldsOfArle/zh-CN.json |
 
 ## 配置词典仓库
 

@@ -56,6 +56,7 @@ function getI18next(): {
 function getYucata(): {
   text?: { syncTranslations?: () => void };
   log?: { update?: () => void };
+  basegame?: { refreshDisplay?: () => Promise<unknown> | unknown };
 } {
   return (window as unknown as { y$?: object }).y$ ?? {};
 }
@@ -129,52 +130,110 @@ function getYucata(): {
       });
     }
 
-    if (observer) return;
-    observer = new MutationObserver((mutations) => {
-      for (const mu of mutations) {
-        for (const node of mu.addedNodes) {
-          if (node.nodeType !== Node.ELEMENT_NODE) continue;
-          const el = node as HTMLElement;
-          if (el.classList && el.classList.contains("modal")) {
-            translateModal(el);
-          } else if (el.querySelectorAll) {
-            el.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
+    // document-start 时 document.body 可能尚未创建，等待就绪
+    const start = (): void => {
+      if (observer) return;
+      observer = new MutationObserver((mutations) => {
+        for (const mu of mutations) {
+          for (const node of mu.addedNodes) {
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            const el = node as HTMLElement;
+            if (el.classList && el.classList.contains("modal")) {
+              translateModal(el);
+            } else if (el.querySelectorAll) {
+              el.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
+            }
           }
         }
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      document.querySelectorAll<HTMLElement>(".modal").forEach(translateModal);
+    };
+
+    if (document.body) {
+      start();
+    } else {
+      // document-start 时 body 尚未创建，轮询等待（不依赖 DOMContentLoaded 时序）
+      let tries = 0;
+      const timer = window.setInterval(() => {
+        tries++;
+        if (document.body || tries > 50) {
+          window.clearInterval(timer);
+          if (document.body) start();
+        }
+      }, 100);
+    }
   }
 
   // ==================== i18next 注入模式 ====================
 
   function startI18nextMode(dict: Dict): void {
-    const i18n = getI18next();
-    if (!i18n) {
-      console.warn("[yucata-zh] 页面未暴露 i18next，无法注入词典，保持英文。");
-      return;
+    // document-start 时 i18next 可能尚未加载，等待其就绪后再注入。
+    const tryInject = (): void => {
+      const i18n = getI18next();
+      if (!i18n) return; // 还没就绪，继续等
+
+      // 注入到 zh 命名空间（i18next 在 /zh/ 路径下使用 zh 语言）。
+      i18n.addResourceBundle("zh", gameType, dict);
+
+      // 刷新 y$.text 的翻译快照（y$.text.get 内部走 i18next.t）。
+      const y$ = getYucata();
+      try {
+        y$.text?.syncTranslations?.();
+      } catch {
+        // 忽略快照刷新错误
+      }
+
+      // 完整重渲染界面：若词典在首次渲染后才注入，需重建游戏界面让所有文本用中文。
+      // 若游戏尚未开始渲染（首次进入、词典加载快），无需刷新——首次渲染即中文。
+      const y$global = window as unknown as { y$?: { game?: unknown; dom?: { game?: HTMLElement } } };
+
+      // 判断游戏界面是否已渲染（board 里是否有内容）
+      const gameRendered = (): boolean => {
+        const gameEl = y$global.y$?.dom?.game;
+        return !!(gameEl && gameEl.children && gameEl.children.length > 0);
+      };
+
+      const refresh = (): void => {
+        try {
+          const p = y$.basegame?.refreshDisplay?.();
+          if (p && typeof (p as Promise<unknown>).catch === "function") {
+            (p as Promise<unknown>).catch(() => {
+              /* 忽略重渲染错误 */
+            });
+          }
+        } catch {
+          // 忽略重渲染错误
+        }
+      };
+
+      // 轮询等待游戏加载完成（最长约 10 秒），完成后按需刷新
+      let tries = 0;
+      const timer = window.setInterval(() => {
+        tries++;
+        const ready = y$global.y$?.game && gameRendered();
+        if (ready || tries > 50) {
+          window.clearInterval(timer);
+          // 界面已用英文渲染过才需要重建；否则首次渲染会自动用中文
+          if (ready) refresh();
+        }
+      }, 200);
+
+      console.log(`[yucata-zh] 已注入 ${gameType} 中文词典到 i18next（${Object.keys(dict).length} 条）。`);
+    };
+
+    // 立即尝试；若 i18next 未就绪，轮询等待（最长约 10 秒）
+    tryInject();
+    if (!getI18next()) {
+      let waits = 0;
+      const waiter = window.setInterval(() => {
+        waits++;
+        if (getI18next() || waits > 50) {
+          window.clearInterval(waiter);
+          if (getI18next()) tryInject();
+        }
+      }, 200);
     }
-
-    // 注入到 zh 命名空间（i18next 在 /zh/ 路径下使用 zh 语言）。
-    i18n.addResourceBundle("zh", gameType, dict);
-
-    // 刷新 y$.text 的翻译快照（y$.text.get 内部走 i18next.t）。
-    const y$ = getYucata();
-    try {
-      y$.text?.syncTranslations?.();
-    } catch {
-      // 忽略快照刷新错误
-    }
-
-    // 重渲染历史记录（已有日志条目用新词典刷新）。
-    try {
-      y$.log?.update?.();
-    } catch {
-      // 忽略重渲染错误
-    }
-
-    console.log(`[yucata-zh] 已注入 ${gameType} 中文词典到 i18next（${Object.keys(dict).length} 条）。`);
   }
 
   // ==================== 启动 ====================

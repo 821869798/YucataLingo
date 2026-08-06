@@ -19,12 +19,12 @@ const GITHUB_REPO = "YucataLingo";
 const GITHUB_BRANCH = "main";
 
 /**
- * 词典源（按优先级）。jsDelivr 加速镜像优先，GitHub raw 兜底。
+ * 词典源（按优先级）。GitHub raw 优先（无长 CDN 缓存，词典修正即时生效），jsDelivr 兜底。
  * 最终 URL：<源>/dicts/<游戏>/<语言>.json
  */
 const DICT_SOURCES = [
-  `https://fastly.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}`,
   `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}`,
+  `https://fastly.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}`,
 ];
 
 /**

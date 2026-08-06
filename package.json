@@ -2,12 +2,13 @@
   "name": "yucata-lingo",
   "version": "0.1.0",
   "private": true,
-  "description": "Yucata 游戏「?」帮助提示框中文翻译油猴插件（当前支持：阿勒农场 Fields of Arle）",
+  "description": "Yucata 游戏「?」帮助提示框中文翻译油猴插件（当前支持：阿勒农场 Fields of Arle、蒂尔特之辉 Tiletum）",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "verify:dict": "node scripts/verify-dict.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

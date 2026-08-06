@@ -17,27 +17,27 @@
 1. 浏览器安装 Tampermonkey（Chrome/Edge）或 Violentmonkey（Firefox）。
 2. 打开扩展面板 → 新建脚本（或「从文件导入」）。
 3. 把 `dist/yucata-zh-help.user.js` 的**全部内容**粘贴进去并保存；或直接把该文件拖进扩展面板。
-4. **修改脚本顶部的 `DICT_REPO` 常量**为你的词典仓库地址（见下文「配置词典仓库」）。
-5. 打开任意 Yucata 对局，点击 `?` 查看翻译。
+4. 打开任意 Yucata 对局，点击 `?` 查看翻译（词典源默认已配置，见下文「配置词典仓库」）。
 
 ## 配置词典仓库
 
-脚本顶部有一个常量：
+词典源在 `src/index.ts` 顶部集中配置，已默认指向本仓库并启用 jsDelivr 加速镜像：
 
-```js
-const DICT_REPO = "https://raw.githubusercontent.com/YOUR_USERNAME/yucata-dicts/main";
+```ts
+const GITHUB_USER = "821869798";
+const GITHUB_REPO = "YucataLingo";
+const GITHUB_BRANCH = "main";
+
+// 词典源（按优先级）：jsDelivr 加速镜像优先，GitHub raw 兜底
+const DICT_SOURCES = [
+  `https://fastly.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}`,
+  `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}`,
+];
 ```
 
-把它改成你自己托管的词典仓库，支持任意可 `fetch` 的静态地址：
-
-| 托管方式 | 示例地址 | 说明 |
-| --- | --- | --- |
-| GitHub raw | `https://raw.githubusercontent.com/<user>/<repo>/main` | 需要给元数据 `@connect` 加对应域名 |
-| GitHub Pages | `https://<user>.github.io/<repo>` | 无需 `@connect`，CORS 友好 |
-| Gitee | `https://gitee.com/<user>/<repo>/raw/main` | 国内访问快 |
-| jsDelivr 镜像 | `https://cdn.jsdelivr.net/gh/<user>/<repo>@main` | 对 GitHub 的 CDN 加速 |
-
-> 使用 `raw.githubusercontent.com` 之外的新域名时，记得在 `userscript.header.txt` 的元数据里加一行 `// @connect <域名>`（Tampermonkey 默认只允许 `@connect` 声明的跨域请求）。
+- **jsDelivr 镜像**：`https://fastly.jsdelivr.net/gh/<user>/<repo>@<branch>`，对 GitHub 免费 CDN 加速，国内访问快。
+- **GitHub raw 兜底**：jsDelivr 不可用时自动回退官方源。
+- 想换成自建仓库（Gitee、GitHub Pages 等），改 `DICT_SOURCES` 数组即可；使用新域名时记得在 `userscript.header.txt` 加对应的 `// @connect <域名>`。
 
 ### 词典仓库目录结构
 
